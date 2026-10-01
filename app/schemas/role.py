@@ -7,3 +7,7 @@ class AssignRoleRequest(BaseModel):
 
 class RemoveRoleRequest(BaseModel):
     role_id: int
+
+
+class UpdateRolePermissionsRequest(BaseModel):
+    permission_ids: list[int]

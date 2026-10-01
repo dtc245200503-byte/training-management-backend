@@ -1,0 +1,279 @@
+import secrets
+import string
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
+
+from app.core.email import send_new_account_email
+from app.core.permissions import require_permission
+from app.core.security import hash_password
+from app.database import get_db
+from app.models.role import Role
+from app.models.user import User
+from app.models.user_role import UserRole
+from app.schemas.user import (
+    CreateUserRequest,
+    UpdateUserRequest
+)
+
+
+router = APIRouter(
+    prefix="/api/users",
+    tags=["User Management"]
+)
+
+
+def generate_temporary_password() -> str:
+    alphabet = (
+        string.ascii_letters
+        + string.digits
+    )
+
+    return "".join(
+        secrets.choice(alphabet)
+        for _ in range(12)
+    )
+
+
+@router.post("")
+async def create_user(
+    data: CreateUserRequest,
+    current_user: User = Depends(
+        require_permission("USER_MANAGE")
+    ),
+    db: Session = Depends(get_db)
+):
+    existing_email = db.query(User).filter(
+        User.email == data.email
+    ).first()
+
+    if existing_email:
+        raise HTTPException(
+            status_code=400,
+            detail="Email đã tồn tại trong hệ thống"
+        )
+
+    existing_username = db.query(User).filter(
+        User.username == data.username
+    ).first()
+
+    if existing_username:
+        raise HTTPException(
+            status_code=400,
+            detail="Tên đăng nhập đã tồn tại"
+        )
+
+    role = db.query(Role).filter(
+        Role.role_id == data.role_id
+    ).first()
+
+    if role is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Vai trò không tồn tại"
+        )
+
+    temporary_password = (
+        generate_temporary_password()
+    )
+
+    user = User(
+        username=data.username,
+        password=hash_password(
+            temporary_password
+        ),
+        full_name=data.full_name,
+        email=data.email,
+        phone=data.phone,
+        role_id=data.role_id,
+        failed_login_attempts=0,
+        is_locked=False
+    )
+
+    db.add(user)
+    db.flush()
+
+    user_role = UserRole(
+        user_id=user.user_id,
+        role_id=data.role_id
+    )
+
+    db.add(user_role)
+    db.commit()
+    db.refresh(user)
+
+    await send_new_account_email(
+        email=user.email,
+        full_name=user.full_name,
+        temporary_password=temporary_password
+    )
+
+    return {
+        "message": "Tạo tài khoản thành công",
+        "user_id": user.user_id,
+        "email": user.email,
+        "role": role.role_name
+    }
+
+
+@router.put("/{user_id}")
+def update_user(
+    user_id: int,
+    data: UpdateUserRequest,
+    current_user: User = Depends(
+        require_permission("USER_MANAGE")
+    ),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(
+        User.user_id == user_id
+    ).first()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Không tìm thấy người dùng"
+        )
+
+    if data.email is not None:
+        duplicate_email = db.query(User).filter(
+            User.email == data.email,
+            User.user_id != user_id
+        ).first()
+
+        if duplicate_email:
+            raise HTTPException(
+                status_code=400,
+                detail="Email đã tồn tại trong hệ thống"
+            )
+
+        user.email = data.email
+
+    if data.full_name is not None:
+        user.full_name = data.full_name
+
+    if data.phone is not None:
+        user.phone = data.phone
+
+    if data.role_id is not None:
+        role = db.query(Role).filter(
+            Role.role_id == data.role_id
+        ).first()
+
+        if role is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Vai trò không tồn tại"
+            )
+
+        user.role_id = data.role_id
+
+        db.query(UserRole).filter(
+            UserRole.user_id == user_id
+        ).delete(
+            synchronize_session=False
+        )
+
+        db.add(
+            UserRole(
+                user_id=user_id,
+                role_id=data.role_id
+            )
+        )
+
+    db.commit()
+
+    return {
+        "message": "Cập nhật tài khoản thành công",
+        "user_id": user.user_id
+    }
+
+
+@router.get("")
+def get_users(
+    search: str | None = Query(
+        default=None
+    ),
+    role_id: int | None = Query(
+        default=None
+    ),
+    status: str | None = Query(
+        default=None
+    ),
+    page: int = Query(
+        default=1,
+        ge=1
+    ),
+    page_size: int = Query(
+        default=20,
+        ge=1,
+        le=100
+    ),
+    current_user: User = Depends(
+        require_permission("USER_MANAGE")
+    ),
+    db: Session = Depends(get_db)
+):
+    query = db.query(User)
+
+    if search:
+        keyword = f"%{search}%"
+
+        query = query.filter(
+            or_(
+                User.full_name.like(keyword),
+                User.email.like(keyword),
+                User.phone.like(keyword)
+            )
+        )
+
+    if role_id is not None:
+        query = query.join(
+            UserRole,
+            User.user_id == UserRole.user_id
+        ).filter(
+            UserRole.role_id == role_id
+        )
+
+    if status == "locked":
+        query = query.filter(
+            User.is_locked == True
+        )
+
+    elif status == "active":
+        query = query.filter(
+            User.is_locked == False
+        )
+
+    total = query.count()
+
+    users = (
+        query
+        .order_by(User.user_id.asc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    return {
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "items": [
+            {
+                "user_id": user.user_id,
+                "username": user.username,
+                "full_name": user.full_name,
+                "email": user.email,
+                "phone": user.phone,
+                "role_id": user.role_id,
+                "status": (
+                    "locked"
+                    if user.is_locked
+                    else "active"
+                )
+            }
+            for user in users
+        ]
+    }

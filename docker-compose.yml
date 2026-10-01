@@ -1,0 +1,23 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: training-mysql
+    restart: unless-stopped
+
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: training_management
+      MYSQL_USER: training_user
+      MYSQL_PASSWORD: training123
+
+    ports:
+      - "3307:3306"
+
+    volumes:
+      - training_data:/var/lib/mysql
+      - ./database/scripts/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+
+volumes:
+  training_data:
+    external: true
+    name: training-managerment-system_mysql_data

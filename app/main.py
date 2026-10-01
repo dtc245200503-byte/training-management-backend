@@ -9,6 +9,7 @@ from app.routers.user_roles import router as user_roles_router
 from app.routers.accounts import router as accounts_router
 from app.routers.users import router as users_router
 from app.routers.me import router as me_router
+from app.routers.role_permissions import router as role_permissions_router
 
 
 app = FastAPI(
@@ -31,6 +32,7 @@ app.include_router(user_roles_router)
 app.include_router(accounts_router)
 app.include_router(users_router)
 app.include_router(me_router)
+app.include_router(role_permissions_router)
 
 
 @app.get("/health")

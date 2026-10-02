@@ -2,7 +2,7 @@ import secrets
 import string
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_
+from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
 from app.core.email import send_new_account_email
@@ -10,10 +10,12 @@ from app.core.permissions import require_permission
 from app.core.security import hash_password
 from app.database import get_db
 from app.models.role import Role
+from app.models.session import UserSession
 from app.models.user import User
 from app.models.user_role import UserRole
 from app.schemas.user import (
     CreateUserRequest,
+    LockUserRequest,
     UpdateUserRequest
 )
 
@@ -88,7 +90,8 @@ async def create_user(
         phone=data.phone,
         role_id=data.role_id,
         failed_login_attempts=0,
-        is_locked=False
+        is_locked=False,
+        lock_reason=None
     )
 
     db.add(user)
@@ -160,6 +163,135 @@ def update_user(
 
     return {
         "message": "Cập nhật tài khoản thành công",
+        "user_id": user.user_id
+    }
+
+
+@router.put("/{user_id}/lock")
+def lock_user(
+    user_id: int,
+    data: LockUserRequest,
+    current_user: User = Depends(
+        require_permission("USER_MANAGE")
+    ),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(
+        User.user_id == user_id
+    ).first()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Không tìm thấy người dùng"
+        )
+
+    if current_user.user_id == user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Bạn không thể tự khóa tài khoản của chính mình"
+        )
+
+    lock_reason = data.lock_reason.strip()
+
+    if not lock_reason:
+        raise HTTPException(
+            status_code=400,
+            detail="Bắt buộc nhập lý do khóa tài khoản"
+        )
+
+    if user.is_locked:
+        raise HTTPException(
+            status_code=400,
+            detail="Tài khoản đã bị khóa"
+        )
+
+    assigned_classes = db.execute(
+        text(
+            """
+            SELECT
+                class_id,
+                class_name
+            FROM classes
+            WHERE instructor_id = :user_id
+            ORDER BY class_id ASC
+            """
+        ),
+        {
+            "user_id": user_id
+        }
+    ).mappings().all()
+
+    user.is_locked = True
+    user.lock_reason = lock_reason
+
+    db.query(UserSession).filter(
+        UserSession.user_id == user_id,
+        UserSession.revoked == False
+    ).update(
+        {
+            UserSession.revoked: True
+        },
+        synchronize_session=False
+    )
+
+    db.commit()
+
+    classes_need_handover = [
+        {
+            "class_id": item["class_id"],
+            "class_name": item["class_name"]
+        }
+        for item in assigned_classes
+    ]
+
+    return {
+        "message": "Khóa tài khoản thành công",
+        "user_id": user.user_id,
+        "lock_reason": user.lock_reason,
+        "classes_need_handover": classes_need_handover,
+        "warning": (
+            "Người dùng đang phụ trách lớp học. "
+            "Cần thực hiện bàn giao."
+            if classes_need_handover
+            else None
+        )
+    }
+
+
+@router.put("/{user_id}/unlock")
+def unlock_user(
+    user_id: int,
+    current_user: User = Depends(
+        require_permission("USER_MANAGE")
+    ),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(
+        User.user_id == user_id
+    ).first()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Không tìm thấy người dùng"
+        )
+
+    if not user.is_locked:
+        raise HTTPException(
+            status_code=400,
+            detail="Tài khoản hiện không bị khóa"
+        )
+
+    user.is_locked = False
+    user.lock_reason = None
+    user.failed_login_attempts = 0
+    user.locked_until = None
+
+    db.commit()
+
+    return {
+        "message": "Mở khóa tài khoản thành công",
         "user_id": user.user_id
     }
 
@@ -291,7 +423,8 @@ def get_users(
                     "locked"
                     if user.is_locked
                     else "active"
-                )
+                ),
+                "lock_reason": user.lock_reason
             }
             for user in users
         ]

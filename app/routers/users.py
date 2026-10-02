@@ -156,32 +156,6 @@ def update_user(
     if data.phone is not None:
         user.phone = data.phone
 
-    if data.role_id is not None:
-        role = db.query(Role).filter(
-            Role.role_id == data.role_id
-        ).first()
-
-        if role is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Vai trò không tồn tại"
-            )
-
-        user.role_id = data.role_id
-
-        db.query(UserRole).filter(
-            UserRole.user_id == user_id
-        ).delete(
-            synchronize_session=False
-        )
-
-        db.add(
-            UserRole(
-                user_id=user_id,
-                role_id=data.role_id
-            )
-        )
-
     db.commit()
 
     return {
@@ -256,6 +230,47 @@ def get_users(
         .all()
     )
 
+    user_ids = [
+        user.user_id
+        for user in users
+    ]
+
+    role_rows = []
+
+    if user_ids:
+        role_rows = (
+            db.query(
+                UserRole.user_id,
+                Role.role_id,
+                Role.role_name
+            )
+            .join(
+                Role,
+                UserRole.role_id == Role.role_id
+            )
+            .filter(
+                UserRole.user_id.in_(user_ids)
+            )
+            .order_by(
+                UserRole.user_id.asc(),
+                Role.role_id.asc()
+            )
+            .all()
+        )
+
+    roles_by_user = {}
+
+    for row in role_rows:
+        if row.user_id not in roles_by_user:
+            roles_by_user[row.user_id] = []
+
+        roles_by_user[row.user_id].append(
+            {
+                "role_id": row.role_id,
+                "role_name": row.role_name
+            }
+        )
+
     return {
         "page": page,
         "page_size": page_size,
@@ -268,6 +283,10 @@ def get_users(
                 "email": user.email,
                 "phone": user.phone,
                 "role_id": user.role_id,
+                "roles": roles_by_user.get(
+                    user.user_id,
+                    []
+                ),
                 "status": (
                     "locked"
                     if user.is_locked

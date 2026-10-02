@@ -15,4 +15,3 @@ class UpdateUserRequest(BaseModel):
     full_name: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
-    role_id: Optional[int] = None

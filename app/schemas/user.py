@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class CreateUserRequest(BaseModel):
@@ -15,3 +15,10 @@ class UpdateUserRequest(BaseModel):
     full_name: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
+
+
+class LockUserRequest(BaseModel):
+    lock_reason: str = Field(
+        min_length=1,
+        max_length=255
+    )

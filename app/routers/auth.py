@@ -416,6 +416,7 @@ def change_password(
     ),
     db: Session = Depends(get_db)
 ):
+    # Kiểm tra mật khẩu hiện tại
     if not verify_password(
         data.current_password,
         current_user.password
@@ -425,6 +426,7 @@ def change_password(
             detail="Mật khẩu hiện tại không đúng"
         )
 
+    # Kiểm tra mật khẩu mới
     if not validate_password(
         data.new_password
     ):
@@ -436,6 +438,7 @@ def change_password(
             )
         )
 
+    # Mật khẩu mới phải khác mật khẩu hiện tại
     if verify_password(
         data.new_password,
         current_user.password
@@ -448,13 +451,35 @@ def change_password(
             )
         )
 
+    # Kiểm tra refresh token của phiên hiện tại
+    current_session = db.query(
+        UserSession
+    ).filter(
+        UserSession.user_id
+        == current_user.user_id,
+        UserSession.refresh_token
+        == data.refresh_token,
+        UserSession.revoked == False
+    ).first()
+
+    if current_session is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Phiên đăng nhập hiện tại không hợp lệ"
+        )
+
+    # Cập nhật mật khẩu
     current_user.password = hash_password(
         data.new_password
     )
 
+    # Thu hồi tất cả phiên khác,
+    # giữ nguyên phiên đang đổi mật khẩu
     db.query(UserSession).filter(
         UserSession.user_id
         == current_user.user_id,
+        UserSession.session_id
+        != current_session.session_id,
         UserSession.revoked == False
     ).update(
         {

@@ -19,5 +19,4 @@ services:
 
 volumes:
   training_data:
-    external: true
     name: training-managerment-system_mysql_data

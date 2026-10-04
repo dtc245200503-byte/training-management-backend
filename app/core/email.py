@@ -1,5 +1,4 @@
 import os
-
 from dotenv import load_dotenv
 from fastapi_mail import (
     ConnectionConfig,
@@ -8,19 +7,15 @@ from fastapi_mail import (
     MessageType
 )
 
-
 load_dotenv()
 
-
+# Cập nhật thêm fallback value để không bị nổ lỗi Pydantic khi chưa cấu hình .env
 conf = ConnectionConfig(
-    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
-    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
-    MAIL_FROM=os.getenv("MAIL_FROM"),
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME", "admin@example.com"),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD", "dummy_password"),
+    MAIL_FROM=os.getenv("MAIL_FROM", "admin@example.com"),
     MAIL_PORT=int(os.getenv("MAIL_PORT", 587)),
-    MAIL_SERVER=os.getenv(
-        "MAIL_SERVER",
-        "smtp.gmail.com"
-    ),
+    MAIL_SERVER=os.getenv("MAIL_SERVER", "smtp.gmail.com"),
     MAIL_STARTTLS=True,
     MAIL_SSL_TLS=False,
     USE_CREDENTIALS=True,

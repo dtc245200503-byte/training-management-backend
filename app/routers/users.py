@@ -1,7 +1,11 @@
+import io
+import pandas as pd
+
 import secrets
 import string
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+# 1. Thêm status, File, UploadFile vào import của fastapi
+from fastapi import APIRouter, Depends, HTTPException, Query, status, File, UploadFile
 from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
@@ -428,4 +432,92 @@ def get_users(
             }
             for user in users
         ]
+    }
+
+
+@router.post("/import-excel", status_code=status.HTTP_200_OK)
+async def import_users_from_excel(
+    file: UploadFile = File(...),
+    current_user: User = Depends(
+        require_permission("USER_MANAGE")
+    ),
+    db: Session = Depends(get_db)
+):
+    # 1. Kiểm tra định dạng file upload
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File không đúng định dạng Excel (.xlsx, .xls)"
+        )
+
+    # 2. Đọc file Excel bằng Pandas
+    contents = await file.read()
+    try:
+        df = pd.read_excel(io.BytesIO(contents))
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Không thể đọc nội dung file Excel"
+        )
+
+    # Kiểm tra các cột bắt buộc trong file
+    required_columns = ["HoTen", "Email", "SoDienThoai", "VaiTro"]
+    for col in required_columns:
+        if col not in df.columns:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail=f"Thiếu cột bắt buộc: {col} trong file Excel"
+            )
+
+    success_count = 0
+    errors = []
+    # Đổi get_password_hash -> hash_password cho khớp với import ở đầu file
+    default_password_hash = hash_password("12345678")
+
+    # 3. Duyệt từng dòng để lưu vào DB
+    for index, row in df.iterrows():
+        line_num = index + 2  # Dòng thực tế trong file Excel (tính cả Header)
+        email = str(row["Email"]).strip() if pd.notna(row["Email"]) else ""
+        full_name = str(row["HoTen"]).strip() if pd.notna(row["HoTen"]) else ""
+        phone = str(row["SoDienThoai"]).strip() if pd.notna(row["SoDienThoai"]) else ""
+
+        if not email or not full_name:
+            errors.append(f"Dòng {line_num}: Thiếu Họ tên hoặc Email")
+            continue
+
+        # Kiểm tra trùng email
+        existing_user = db.query(User).filter(User.email == email).first()
+        if existing_user:
+            errors.append(f"Dòng {line_num}: Email '{email}' đã tồn tại")
+            continue
+
+        # Tự sinh username từ email
+        username = email.split("@")[0]
+
+        # Kiểm tra trùng username
+        existing_username = db.query(User).filter(User.username == username).first()
+        if existing_username:
+            username = f"{username}_{secrets.randbelow(1000)}"
+
+        # Tạo người dùng mới (dùng thuộc tính password, is_locked chuẩn với model User)
+        new_user = User(
+            username=username,
+            full_name=full_name,
+            email=email,
+            phone=phone,
+            password=default_password_hash,
+            is_locked=False,
+            failed_login_attempts=0
+        )
+        db.add(new_user)
+        success_count += 1
+
+    db.commit()
+
+    return {
+        "message": "Import dữ liệu hoàn tất",
+        "total_rows": len(df),
+        "success_count": success_count,
+        "failed_count": len(errors),
+        "errors": errors
     }

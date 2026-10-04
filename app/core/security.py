@@ -12,7 +12,8 @@ load_dotenv()
 
 password_hash = PasswordHash.recommended()
 
-SECRET_KEY = os.getenv("SECRET_KEY")
+# Dùng chuỗi mặc định an toàn nếu os.getenv("SECRET_KEY") trả về None hoặc rỗng
+SECRET_KEY = os.getenv("SECRET_KEY") or "fallback_secret_key_training_management_system_2026"
 ALGORITHM = "HS256"
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
@@ -57,7 +58,7 @@ def create_access_token(user_id: int, role: str) -> str:
 
     return jwt.encode(
         payload,
-        SECRET_KEY,
+        str(SECRET_KEY),
         algorithm=ALGORITHM
     )
 
@@ -75,7 +76,7 @@ def create_refresh_token(user_id: int) -> str:
 
     return jwt.encode(
         payload,
-        SECRET_KEY,
+        str(SECRET_KEY),
         algorithm=ALGORITHM
     )
 
@@ -88,7 +89,7 @@ def decode_access_token(token: str):
     try:
         payload = jwt.decode(
             token,
-            SECRET_KEY,
+            str(SECRET_KEY),
             algorithms=[ALGORITHM]
         )
 

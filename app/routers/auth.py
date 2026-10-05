@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -137,6 +137,7 @@ def login(
             "role": role_name
         }
     }
+
 
 @router.post("/refresh")
 def refresh_token(
@@ -279,4 +280,51 @@ async def forgot_password(
 
     return {
         "message": "Nếu email tồn tại, liên kết đặt lại mật khẩu đã được gửi."
+    }
+
+
+@router.post("/change-password")
+def change_password(
+    data: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    u_id = getattr(current_user, "user_id", None) or getattr(current_user, "id", None)
+
+    # 1. Kiểm tra mật khẩu hiện tại
+    stored_password = getattr(current_user, "password", None) or getattr(current_user, "password_hash", None)
+    if not stored_password or not verify_password(data.current_password, stored_password):
+        raise HTTPException(
+            status_code=400,
+            detail="Mật khẩu hiện tại không chính xác"
+        )
+
+    # 2. Kiểm tra mật khẩu mới không trùng mật khẩu cũ
+    if verify_password(data.new_password, stored_password):
+        raise HTTPException(
+            status_code=400,
+            detail="Mật khẩu mới không được trùng với mật khẩu hiện tại"
+        )
+
+    # 3. Mã hóa và cập nhật mật khẩu mới
+    new_hashed_password = hash_password(data.new_password)
+    if hasattr(current_user, "password"):
+        current_user.password = new_hashed_password
+    else:
+        current_user.password_hash = new_hashed_password
+
+    # 4. Thu hồi tất cả các phiên đăng nhập khác ngoại trừ refresh_token truyền vào
+    other_sessions = db.query(UserSession).filter(
+        UserSession.user_id == u_id,
+        UserSession.refresh_token != data.refresh_token,
+        UserSession.revoked == False
+    ).all()
+
+    for session in other_sessions:
+        session.revoked = True
+
+    db.commit()
+
+    return {
+        "message": "Đổi mật khẩu thành công. Các phiên đăng nhập trên thiết bị khác đã bị thu hồi."
     }

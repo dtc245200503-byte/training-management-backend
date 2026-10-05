@@ -236,3 +236,47 @@ def logout(
     return {
         "message": "Đăng xuất thành công"
     }
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    request: ForgotPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    # 1. Tìm user theo email
+    user = db.query(User).filter(
+        User.email == request.email
+    ).first()
+
+    # Không tiết lộ email có tồn tại hay không
+    if user is None:
+        return {
+            "message": "Nếu email tồn tại, liên kết đặt lại mật khẩu đã được gửi."
+        }
+
+    # 2. Tạo token reset mật khẩu
+    token = create_password_reset_token()
+
+    # 3. Lưu token vào database
+    reset_token = PasswordResetToken(
+        user_id=user.user_id,
+        token=token,
+        expires_at=datetime.now() + timedelta(minutes=30),
+        used=False
+    )
+
+    db.add(reset_token)
+    db.commit()
+
+    # 4. Tạo link reset mật khẩu
+    reset_link = f"http://localhost:5173/reset-password?token={token}"
+
+    # 5. Gửi email
+    await send_reset_password_email(
+        email=user.email,
+        reset_link=reset_link
+    )
+
+    return {
+        "message": "Nếu email tồn tại, liên kết đặt lại mật khẩu đã được gửi."
+    }

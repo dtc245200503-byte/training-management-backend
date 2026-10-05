@@ -10,12 +10,16 @@ from app.routers.accounts import router as accounts_router
 from app.routers.users import router as users_router
 from app.routers.me import router as me_router
 from app.routers.role_permissions import router as role_permissions_router
+from app.routers import curriculum
 
 
+# 1. Chỉ khởi tạo FastAPI DUY NHẤT 1 lần
 app = FastAPI(
-    title="Training Management System API"
+    title="Training Management System API",
+    version="1.0.0"
 )
 
+# 2. Cấu hình CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -28,6 +32,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 3. Đăng ký tất cả các Routers vào app
 app.include_router(auth_router)
 app.include_router(rbac_router)
 app.include_router(user_roles_router)
@@ -35,6 +40,7 @@ app.include_router(accounts_router)
 app.include_router(users_router)
 app.include_router(me_router)
 app.include_router(role_permissions_router)
+app.include_router(curriculum.router)  # Router chương trình đào tạo nằm ở đây
 
 
 @app.get("/health")

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import Base, SessionLocal, engine
-from app.models.user import User
+from app.models import RefreshToken, User
 from app.routers.auth import router as auth_router
 from app.security.password import hash_password
 

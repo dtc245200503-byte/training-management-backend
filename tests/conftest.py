@@ -6,7 +6,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.main import app
-from app.models.user import User
+from app.models import RefreshToken, User
 from app.security.password import hash_password
 
 # Dùng SQLite in-memory cho testing để cách ly hoàn toàn

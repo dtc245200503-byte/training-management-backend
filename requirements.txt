@@ -9,3 +9,5 @@ fastapi-mail
 pytest
 httpx
 email-validator
+pandas
+openpyxl

@@ -2,35 +2,21 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import Base, SessionLocal, engine
 from app.models import RefreshToken, User
-from app.routers.auth import router as auth_router
+from app.routers import auth_router, menu_router, roles_router, users_router
 from app.security.password import hash_password
 
-# Tạo bảng tự động nếu chưa có
-Base.metadata.create_all(bind=engine)
+# Tạo bảng tự động và đồng bộ cấu trúc nếu cần
+from app.init_db import ensure_db_schema, seed_data
 
-# Khởi tạo tài khoản mẫu nếu database chưa có người dùng
+ensure_db_schema()
+
+# Khởi tạo dữ liệu mẫu nếu cần
 with SessionLocal() as db:
-    if db.query(User).count() == 0:
-        demo_users = [
-            User(
-                email="user@example.com",
-                password_hash=hash_password("password123"),
-                full_name="Nguyễn Văn A",
-                is_active=True,
-            ),
-            User(
-                email="admin@example.com",
-                password_hash=hash_password("password123"),
-                full_name="Quản trị viên",
-                is_active=True,
-            ),
-        ]
-        db.add_all(demo_users)
-        db.commit()
+    seed_data(db)
 
 app = FastAPI(
     title="Training Management System API",
-    description="Backend API cho hệ thống quản lý đào tạo (TMS) - S1-01 Login",
+    description="Backend API cho hệ thống quản lý đào tạo (TMS) - Sprint 1",
     version="1.0.0",
 )
 
@@ -44,6 +30,9 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(users_router)
+app.include_router(roles_router)
+app.include_router(menu_router)
 
 
 @app.get("/", tags=["Health"])

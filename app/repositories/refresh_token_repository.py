@@ -35,3 +35,15 @@ class RefreshTokenRepository:
         if db_token:
             return self.revoke(db_token)
         return None
+
+    def revoke_all_for_user(self, user_id: int) -> int:
+        now = datetime.now(timezone.utc)
+        count = self.db.query(RefreshToken).filter(
+            RefreshToken.user_id == user_id,
+            RefreshToken.is_revoked == False,
+        ).update(
+            {"is_revoked": True, "revoked_at": now},
+            synchronize_session="fetch",
+        )
+        self.db.commit()
+        return count

@@ -1,11 +1,35 @@
 from app.schemas.auth import (
+    ChangePasswordRequest,
+    ChangePasswordResponse,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
     LoginRequest,
     LoginResponse,
     LogoutRequest,
     LogoutResponse,
+    MenuItemResponse,
+    MenuResponse,
     RefreshTokenRequest,
     RefreshTokenResponse,
+    ResetPasswordRequest,
+    ResetPasswordResponse,
+    UserProfileResponse,
     UserResponse,
+)
+from app.schemas.role import (
+    PermissionResponse,
+    RoleListResponse,
+    RoleResponse,
+)
+from app.schemas.user import (
+    AssignRolesRequest,
+    LockUserRequest,
+    LockUserResponse,
+    RoleActionResponse,
+    UserCreateRequest,
+    UserDetailResponse,
+    UserListResponse,
+    UserUpdateRequest,
 )
 
 __all__ = [
@@ -16,5 +40,26 @@ __all__ = [
     "RefreshTokenResponse",
     "LogoutRequest",
     "LogoutResponse",
+    "ForgotPasswordRequest",
+    "ForgotPasswordResponse",
+    "VerifyResetTokenRequest",
+    "VerifyResetTokenResponse",
+    "ResetPasswordRequest",
+    "ResetPasswordResponse",
+    "ChangePasswordRequest",
+    "ChangePasswordResponse",
+    "UserProfileResponse",
+    "MenuItemResponse",
+    "MenuResponse",
+    "PermissionResponse",
+    "RoleResponse",
+    "RoleListResponse",
+    "UserCreateRequest",
+    "UserUpdateRequest",
+    "UserDetailResponse",
+    "UserListResponse",
+    "LockUserRequest",
+    "LockUserResponse",
+    "AssignRolesRequest",
+    "RoleActionResponse",
 ]
-

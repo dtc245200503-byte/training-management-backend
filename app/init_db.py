@@ -20,6 +20,18 @@ def ensure_db_schema():
                     conn.execute(text("ALTER TABLE users ADD COLUMN locked_at DATETIME"))
                 if "lock_reason" not in columns:
                     conn.execute(text("ALTER TABLE users ADD COLUMN lock_reason VARCHAR(500)"))
+                if "phone_number" not in columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN phone_number VARCHAR(20)"))
+                if "avatar_url" not in columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN avatar_url VARCHAR(500)"))
+                if "bio" not in columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN bio VARCHAR(1000)"))
+                if "address" not in columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN address VARCHAR(255)"))
+                if "date_of_birth" not in columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN date_of_birth VARCHAR(50)"))
+                if "gender" not in columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN gender VARCHAR(20)"))
                 conn.commit()
     except Exception:
         pass
@@ -36,9 +48,16 @@ def seed_roles_and_permissions(db: Session):
         {"name": "Khóa/Mở khóa tài khoản", "code": "user:lock", "module": "users", "description": "Khóa hoặc mở khóa tài khoản người dùng"},
         # Quản lý vai trò
         {"name": "Phân quyền vai trò", "code": "role:assign", "module": "roles", "description": "Gán hoặc thu hồi vai trò cho người dùng"},
-        # Quản lý đào tạo
+        # Quản lý đào tạo (Sprint 1 & Sprint 2)
         {"name": "Xem khóa học", "code": "course:read", "module": "courses", "description": "Xem danh sách và nội dung khóa học"},
         {"name": "Quản lý khóa học", "code": "course:manage", "module": "courses", "description": "Tạo, sửa, xóa khóa học và lớp đào tạo"},
+        {"name": "Quản lý chương trình đào tạo", "code": "program:manage", "module": "programs", "description": "Tạo, sửa, xóa chương trình đào tạo"},
+        {"name": "Quản lý môn học", "code": "subject:manage", "module": "subjects", "description": "Tạo, sửa, xóa môn học"},
+        {"name": "Quản lý lớp/phiên đào tạo", "code": "session:manage", "module": "sessions", "description": "Tạo, sửa, xóa phiên đào tạo"},
+        # Quản lý khách hàng tư vấn (Leads - S2-08 -> S2-11)
+        {"name": "Xem danh sách tư vấn", "code": "lead:read", "module": "leads", "description": "Xem danh sách và chi tiết yêu cầu tư vấn"},
+        {"name": "Quản lý tư vấn", "code": "lead:manage", "module": "leads", "description": "Cập nhật trạng thái và ghi chú tư vấn"},
+        {"name": "Phân công tư vấn", "code": "lead:assign", "module": "leads", "description": "Phân công chuyên viên phụ trách tư vấn"},
         # Báo cáo
         {"name": "Xem báo cáo", "code": "report:view", "module": "reports", "description": "Xem thống kê và báo cáo đào tạo"},
         # Menu điều hướng
@@ -79,8 +98,11 @@ def seed_roles_and_permissions(db: Session):
     # ADMIN nhận tất cả quyền
     role_admin.permissions = all_perms
 
-    # TRAINER nhận quyền giảng dạy, báo cáo và menu trainer
-    trainer_perm_codes = {"course:read", "course:manage", "report:view", "menu:trainer"}
+    # TRAINER nhận quyền giảng dạy, đào tạo, báo cáo và menu trainer
+    trainer_perm_codes = {
+        "course:read", "course:manage", "program:manage", "subject:manage",
+        "session:manage", "lead:read", "report:view", "menu:trainer"
+    }
     role_trainer.permissions = [p for p in all_perms if p.code in trainer_perm_codes]
 
     # TRAINEE nhận quyền học tập và menu trainee

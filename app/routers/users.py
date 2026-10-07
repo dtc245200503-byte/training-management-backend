@@ -1,8 +1,9 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
+from app.schemas.excel_import import UserImportResult
 from app.schemas.user import (
     AssignRolesRequest,
     LockUserRequest,
@@ -14,6 +15,7 @@ from app.schemas.user import (
     UserUpdateRequest,
 )
 from app.security.dependencies import require_permissions
+from app.services.user_import_service import UserImportService
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
@@ -64,6 +66,25 @@ def create_user(
 ):
     service = UserService(db)
     return service.create_user(request)
+
+
+# =============================================================================
+# S2-01: Nhập người dùng từ Excel
+# =============================================================================
+@router.post(
+    "/import-excel",
+    response_model=UserImportResult,
+    status_code=status.HTTP_200_OK,
+    summary="Nhập danh sách người dùng từ file Excel",
+    description="Nhập người dùng hàng loạt từ file Excel (.xlsx, .xls) kèm báo cáo kết quả chi tiết.",
+)
+def import_users_excel(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_permissions("user:create")),
+    db: Session = Depends(get_db),
+):
+    service = UserImportService(db)
+    return service.import_users_from_excel(file)
 
 
 @router.get(

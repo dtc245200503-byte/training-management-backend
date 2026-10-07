@@ -15,11 +15,50 @@ from app.schemas.auth import (
     ResetPasswordResponse,
     UserProfileResponse,
     UserResponse,
+    VerifyResetTokenRequest,
+    VerifyResetTokenResponse,
+)
+from app.schemas.consultation_lead import (
+    LeadAssignRequest,
+    LeadListResponse,
+    LeadResponse,
+    LeadUpdate,
+    PublicConsultationCreate,
+    PublicConsultationResponse,
+)
+from app.schemas.excel_import import (
+    UserImportErrorDetail,
+    UserImportResult,
+)
+from app.schemas.profile import (
+    AvatarUploadResponse,
+    UserProfileDetail,
+    UserProfileUpdate,
 )
 from app.schemas.role import (
     PermissionResponse,
     RoleListResponse,
     RoleResponse,
+)
+from app.schemas.subject import (
+    SubjectCreate,
+    SubjectListResponse,
+    SubjectResponse,
+    SubjectUpdate,
+)
+from app.schemas.training_program import (
+    AttachSubjectRequest,
+    AttachedSubjectResponse,
+    TrainingProgramCreate,
+    TrainingProgramListResponse,
+    TrainingProgramResponse,
+    TrainingProgramUpdate,
+)
+from app.schemas.training_session import (
+    TrainingSessionCreate,
+    TrainingSessionListResponse,
+    TrainingSessionResponse,
+    TrainingSessionUpdate,
 )
 from app.schemas.user import (
     AssignRolesRequest,
@@ -62,4 +101,29 @@ __all__ = [
     "LockUserResponse",
     "AssignRolesRequest",
     "RoleActionResponse",
+    "UserProfileUpdate",
+    "UserProfileDetail",
+    "AvatarUploadResponse",
+    "UserImportErrorDetail",
+    "UserImportResult",
+    "SubjectCreate",
+    "SubjectUpdate",
+    "SubjectResponse",
+    "SubjectListResponse",
+    "TrainingProgramCreate",
+    "TrainingProgramUpdate",
+    "TrainingProgramResponse",
+    "TrainingProgramListResponse",
+    "AttachSubjectRequest",
+    "AttachedSubjectResponse",
+    "TrainingSessionCreate",
+    "TrainingSessionUpdate",
+    "TrainingSessionResponse",
+    "TrainingSessionListResponse",
+    "PublicConsultationCreate",
+    "PublicConsultationResponse",
+    "LeadUpdate",
+    "LeadAssignRequest",
+    "LeadResponse",
+    "LeadListResponse",
 ]
